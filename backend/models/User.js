@@ -20,7 +20,6 @@ const UserSchema = new mongoose.Schema({
   pts: { type: Number, default: 0 },
   dateInscription: { type: Date, default: Date.now }
 }, { timestamps: true });
-
 UserSchema.methods.hacherMotDePasse = async function() {
   const salt = await bcrypt.genSalt(10);
   this.motDePasse = await bcrypt.hash(this.motDePasse, salt);
