@@ -10,11 +10,15 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 
-// Middleware CORS
+// ✅ CORS corrigé (Netlify + localhost)
 app.use(cors({
-  origin: true,
+  origin: [
+    'https://didacticiel-tad-2.netlify.app',
+    'http://localhost:3000'
+  ],
   credentials: true
 }));
+
 app.use(express.json());
 
 // Routes
@@ -32,8 +36,8 @@ app.get('/', (req, res) => {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ MongoDB connecté !');
-    app.listen(process.env.PORT, () => {
-      console.log(`✅ Serveur lancé sur le port ${process.env.PORT}`);
+    app.listen(process.env.PORT || 5000, () => {
+      console.log(`✅ Serveur lancé sur le port ${process.env.PORT || 5000}`);
     });
   })
   .catch(err => {
