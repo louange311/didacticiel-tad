@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: didacticiel-tad-backend
+    runtime: node
+    repo: https://github.com/louange311/didacticiel-tad
+    branch: main
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
