@@ -1,16 +1,24 @@
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config({ path: __dirname + '/../.env' });
 const mongoose = require('mongoose');
 const User = require('../models/User');
 
 async function creerAdmin() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    // Vérifier que MONGODB_URI existe
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      console.error('❌ Erreur : MONGODB_URI non défini dans .env');
+      console.log('Assure-toi que le fichier .env contient : MONGODB_URI=mongodb+srv://...');
+      process.exit(1);
+    }
+
+    await mongoose.connect(mongoUri);
     console.log('✅ MongoDB connecté');
 
     // Vérifier si un admin existe déjà
     const adminExistant = await User.findOne({ role: 'admin' });
     if (adminExistant) {
-      console.log('⚠️  Un admin existe déjà :', adminExistant.email);
+      console.log('⚠️ Un admin existe déjà :', adminExistant.email);
       process.exit(0);
     }
 
@@ -30,7 +38,7 @@ async function creerAdmin() {
     console.log('✅ Admin créé avec succès !');
     console.log('   Email    :', admin.email);
     console.log('   Mot de passe : Admin2026!');
-    console.log('   ⚠️  Change le mot de passe après la première connexion !');
+    console.log('   ⚠️ Change le mot de passe après la première connexion !');
 
   } catch (err) {
     console.error('❌ Erreur :', err.message);

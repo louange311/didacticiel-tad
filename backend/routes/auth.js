@@ -2,17 +2,35 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Classe = require('../models/Classe');
 
 // ===== INSCRIPTION =====
 router.post('/inscription', async (req, res) => {
   try {
-    const { nom, prenom, email, motDePasse, role, codeProfesseur } = req.body;
+    const { nom, prenom, email, motDePasse, role, codeProfesseur, codeClasse } = req.body;
 
     // Vérification code professeur
     if (role === 'professeur') {
       if (codeProfesseur !== process.env.CODE_PROFESSEUR) {
         return res.status(403).json({ 
-          message: 'Code professeur invalide !' 
+          message: '❌ Code professeur invalide !' 
+        });
+      }
+    }
+
+    // Vérification code classe pour les élèves
+    if (role === 'eleve' && !codeClasse) {
+      return res.status(400).json({ 
+        message: '❌ Un code de classe est requis pour les élèves' 
+      });
+    }
+
+    let classe = null;
+    if (role === 'eleve') {
+      classe = await Classe.findOne({ code: codeClasse.toUpperCase() });
+      if (!classe) {
+        return res.status(404).json({ 
+          message: '❌ Code de classe invalide. Vérifie auprès de ton professeur.' 
         });
       }
     }
@@ -26,8 +44,6 @@ router.post('/inscription', async (req, res) => {
     }
 
     // Statut selon le rôle
-    // Professeur → en_attente (doit être validé par admin)
-    // Élève → actif directement
     const statut = role === 'professeur' ? 'en_attente' : 'actif';
 
     const user = new User({ 
@@ -36,6 +52,12 @@ router.post('/inscription', async (req, res) => {
 
     await user.hacherMotDePasse();
     await user.save();
+
+    // Ajouter l'élève à la classe
+    if (role === 'eleve' && classe) {
+      classe.eleves.push(user._id);
+      await classe.save();
+    }
 
     // Si professeur → pas de token, attendre validation
     if (role === 'professeur') {
@@ -62,7 +84,8 @@ router.post('/inscription', async (req, res) => {
         email: user.email,
         role: user.role,
         statut: user.statut,
-        badges: user.badges
+        badges: user.badges || [],
+        classe: classe ? { nom: classe.nom, code: classe.code } : null
       }
     });
 
@@ -105,6 +128,15 @@ router.post('/connexion', async (req, res) => {
       });
     }
 
+    // Récupérer la classe de l'élève
+    let classe = null;
+    if (user.role === 'eleve') {
+      const foundClasse = await Classe.findOne({ eleves: user._id });
+      if (foundClasse) {
+        classe = { nom: foundClasse.nom, code: foundClasse.code };
+      }
+    }
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
@@ -121,7 +153,8 @@ router.post('/connexion', async (req, res) => {
         email: user.email,
         role: user.role,
         statut: user.statut,
-        badges: user.badges
+        badges: user.badges || [],
+        classe
       }
     });
 
@@ -140,7 +173,21 @@ router.get('/profil', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select('-motDePasse');
 
-    res.json(user);
+    // Récupérer la classe de l'élève
+    let classe = null;
+    if (user.role === 'eleve') {
+      const foundClasse = await Classe.findOne({ eleves: user._id });
+      if (foundClasse) {
+        classe = { nom: foundClasse.nom, code: foundClasse.code };
+      }
+    }
+
+    res.json({
+      ...user.toObject(),
+      badges: user.badges || [],
+      classe
+    });
+
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
